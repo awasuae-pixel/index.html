@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>حرب النرد</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;font-family:-apple-system,"Segoe UI",Tahoma,sans-serif;
+ background:repeating-linear-gradient(90deg,#a99478 0 3px,#b5a083 3px 9px,#a38e72 9px 11px)}
+#app{display:flex;flex-direction:column;height:100%;max-width:520px;margin:auto;padding:6px 10px}
+#top{display:flex;gap:6px;align-items:center;margin:2px 0 6px}
+.ib{border:0;background:#000a;color:#fff;font-size:18px;width:40px;height:40px;border-radius:12px;flex:none}
+#menu{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:10}
+#menu div{background:#fbfbff;padding:24px;border-radius:20px;text-align:center;width:min(88vw,360px)}
+#menu h2{margin:0 0 14px}
+#menu button{display:block;width:100%;margin:10px 0 0;padding:14px;font-size:19px;border:0;border-radius:14px;background:#1e9b57;color:#fff}
+#menu button#vsfr{background:#e98a2b}
+#menu small{display:block;font-size:12px;opacity:.9;margin-top:3px}
+#msg{flex:1;margin:0;background:#000a;color:#fff;font-size:15px;padding:6px 14px;border-radius:12px;text-align:center;min-height:34px}
+#paper{flex:1;background:#fbfbff;box-shadow:0 3px 10px #0006;display:flex;flex-direction:column;min-height:0}
+.army{flex:1;display:flex;flex-wrap:wrap;align-content:space-evenly;justify-content:space-around;padding:6px 4px}
+.u{position:relative;transition:.3s}
+.u svg{display:block;overflow:visible}
+.x{display:none}
+.dead .x{display:block}
+.pick .u:not(.dead){cursor:pointer}
+.pick{outline:3px dashed #e98a2b;outline-offset:-5px}
+.hit{animation:hit .7s}
+@keyframes hit{40%{transform:scale(1.35) rotate(8deg)}}
+#wire{position:relative;height:84px;flex:none}
+#wire svg{position:absolute;inset:0;width:100%;height:100%}
+#die{position:absolute;left:50%;top:50%;margin:-36px 0 0 -36px;width:72px;height:72px;border:0;padding:6px;border-radius:14px;
+ background:linear-gradient(135deg,#e6c38a,#c99d5e);box-shadow:0 4px 0 #8f6b3a,0 6px 8px #0005;
+ display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);transform:rotate(-8deg)}
+#die:active{transform:rotate(-8deg) translateY(3px)}
+#die:disabled{opacity:.75}
+#die i{width:13px;height:13px;border-radius:50%;background:#3b2a14;place-self:center;visibility:hidden}
+#die i.on{visibility:visible}
+#rules{font-size:11px;text-align:center;color:#fff;text-shadow:0 1px 2px #000;padding:5px 0}
+#end{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:9}
+#end div{background:#fff;padding:26px;border-radius:18px;text-align:center;font-size:24px}
+#end button{margin-top:16px;font-size:18px;padding:10px 22px;border:0;border-radius:12px;background:#1e9b57;color:#fff}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top"><div id="msg">اختر طريقة اللعب</div><button id="snd" class="ib">🔊</button><button id="home" class="ib">☰</button></div>
+  <div id="paper">
+    <div class="army" id="bot"></div>
+    <div id="wire"><svg id="wsvg" preserveAspectRatio="none"></svg><button id="die" aria-label="ارمِ النرد"></button></div>
+    <div class="army" id="me"></div>
+  </div>
+  <div id="rules">ارمِ النرد ووزّع نقاطه كما تشاء: نقطة تقتل جندياً، أو تخصم من نقاط دبابة (٦)</div>
+</div>
+<div id="menu"><div><h2>🎲 حرب النرد</h2><button id="vsai">🤖 ضد الكمبيوتر</button><button id="vsfr">👫 مع صديق<small>على نفس الجوال بالتناوب</small></button></div></div>
+<div id="end"><div><span id="endt"></span><br><button id="again">العب مرة أخرى</button> <button id="tomenu" style="background:#777">القائمة</button></div></div>
+<script>
+var COL={bot:"#e98a2b",me:"#1e9b57"};
+var PIPS=[[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
+var teams,turn,mode,pts;
+var die=document.getElementById("die");
+for(var i=0;i<9;i++)die.appendChild(document.createElement("i"));
+function showFace(d){var c=die.children;for(var i=0;i<9;i++)c[i].className=PIPS[d-1].indexOf(i)>=0?"on":""}
+function wire(){var s=document.getElementById("wsvg"),w=520,p="";s.setAttribute("viewBox","0 0 "+w+" 84");
+  var h='<path d="M0 42 Q130 36 260 42 T520 42" stroke="#4a2f22" stroke-width="2" fill="none"/>';
+  for(var x=6;x<w;x+=14)h+='<ellipse cx="'+x+'" cy="'+(42+((x/14|0)%2?3:-3))+'" rx="7" ry="6" stroke="#4a2f22" stroke-width="2" fill="none" transform="rotate('+((x/14|0)%2?30:-30)+' '+x+' 42)"/>';
+  s.innerHTML=h}
+function man(c,cmd){var h='<circle cx="25" cy="13" r="8" stroke="'+c+'" stroke-width="2.5" fill="#fff"/>';
+  var b='<path d="M25 21V46M25 29L11 39M25 29L39 37M25 46L14 65M25 46L36 65" stroke="'+c+'" stroke-width="2.5" fill="none" stroke-linecap="round"/>';
+  if(cmd)h='<path d="M11 12Q11 0 25 0Q39 0 39 12Q39 14 25 14Q11 14 11 12Z" fill="'+c+'"/><circle cx="25" cy="14" r="9" stroke="'+c+'" stroke-width="2.5" fill="none"/><text x="25" y="18" text-anchor="middle" font-size="11" font-weight="bold" fill="'+c+'">1</text>';
+  return '<svg width="46" height="62" viewBox="0 0 50 70">'+b+h+'<g class="x" stroke="#c22" stroke-width="3"><path d="M4 4L46 66M46 4L4 66"/></g></svg>'}
+function tank(c,n){var t='<path d="M20 34Q20 8 42 8Q62 8 62 34Z" stroke="'+c+'" stroke-width="2.5" fill="#fff"/>'
+  +'<path d="M62 20L78 13L80 22L62 28" stroke="'+c+'" stroke-width="2.5" fill="none"/>'
+  +'<rect x="8" y="34" width="66" height="18" rx="9" stroke="'+c+'" stroke-width="2.5" fill="#fff"/>';
+  for(var i=0;i<n;i++)t+='<circle cx="'+(16+i*10)+'" cy="43" r="4" stroke="'+c+'" stroke-width="2" fill="none"/>';
+  t+='<text x="41" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="'+c+'">'+n+'</text>';
+  return '<svg width="74" height="56" viewBox="0 0 82 56">'+t+'<g class="x" stroke="#c22" stroke-width="3"><path d="M4 4L78 54M78 4L4 54"/></g></svg>'}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
+function mk(){var a=[{t:"c",hp:1},{t:"k",hp:6},{t:"k",hp:6},{t:"k",hp:6}];
+  for(var i=0;i<12;i++)a.push({t:"s",hp:1});
+  a.forEach(function(u){u.dead=false;u.r=Math.round(Math.random()*14-7);u.y=Math.round(Math.random()*14-7)});
+  return shuffle(a)}
+var vs="ai",muted=false,AC;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+  if(AC&&AC.state==="suspended")AC.resume();return AC}
+function tone(f,d,type,v,to){if(muted)return;var a=ac();if(!a)return;var o=a.createOscillator(),g=a.createGain(),t=a.currentTime;
+  o.type=type||"sine";o.frequency.setValueAtTime(f,t);if(to)o.frequency.exponentialRampToValueAtTime(to,t+d);
+  g.gain.setValueAtTime(v||.2,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d)}
+function boom(d,v){if(muted)return;var a=ac();if(!a)return;var n=Math.floor(a.sampleRate*d),b=a.createBuffer(1,n,a.sampleRate),x=b.getChannelData(0);
+  for(var i=0;i<n;i++)x[i]=(Math.random()*2-1)*(1-i/n);
+  var s=a.createBufferSource(),g=a.createGain(),f=a.createBiquadFilter();f.type="lowpass";f.frequency.value=900;
+  s.buffer=b;g.gain.value=v||.4;s.connect(f);f.connect(g);g.connect(a.destination);s.start()}
+var SND={tick:function(){tone(500+Math.random()*300,.04,"square",.07)},
+  land:function(){tone(160,.15,"triangle",.35,60)},
+  hit:function(){tone(420,.12,"sawtooth",.15,120)},
+  tank:function(){tone(230,.14,"square",.18,110)},
+  kill:function(){boom(.4,.55);tone(120,.3,"sine",.35,40)},
+  win:function(){[523,659,784,1047].forEach(function(f,i){setTimeout(function(){tone(f,.25,"triangle",.25)},i*160)})},
+  lose:function(){[400,330,260,180].forEach(function(f,i){setTimeout(function(){tone(f,.3,"sawtooth",.15)},i*220)})}};
+function nm(k){return vs==="ai"?(k==="me"?"أنت":"الخصم"):(k==="me"?"الأخضر":"البرتقالي")}
+function human(w){return w==="me"||vs==="friend"}
+function render(){["bot","me"].forEach(function(k){
+  var el=document.getElementById(k),foe=turn==="me"?"bot":"me",pk=mode==="pick"&&k===foe;
+  el.innerHTML="";el.className="army"+(pk?" pick":"");
+  teams[k].forEach(function(u){var d=document.createElement("div");
+    d.className="u"+(u.dead?" dead":"")+(u.hit?" hit":"");
+    d.style.transform="translateY("+u.y+"px) rotate("+u.r+"deg)";
+    d.innerHTML=u.t==="k"?tank(COL[k],u.hp):man(COL[k],u.t==="c");
+    if(pk&&!u.dead)d.onclick=function(){strike(u,turn)};
+    el.appendChild(d);u.hit=false})})}
+function alive(k){return teams[k].filter(function(u){return !u.dead})}
+function say(t){document.getElementById("msg").textContent=t}
+function hurt(u){u.hp--;u.hit=true;if(u.hp<=0)u.dead=true;
+  if(u.t==="k")(u.dead?SND.kill:SND.tank)();else SND.hit()}
+function start(){teams={bot:mk(),me:mk()};turn="me";mode="idle";pts=0;
+  document.getElementById("end").style.display="none";
+  die.disabled=false;showFace(2);render();
+  say(vs==="ai"?"دورك: اضغط على النرد":nm(turn)+": ارمِ النرد")}
+function roll(who){mode="rolling";die.disabled=true;render();
+  var n=0,iv=setInterval(function(){showFace(1+Math.floor(Math.random()*6));SND.tick();
+    if(++n>8){clearInterval(iv);var d=1+Math.floor(Math.random()*6);showFace(d);SND.land();pts=d;
+      if(human(who)){mode="pick";say((who==="me"&&vs==="ai"?"رميت ":nm(who)+" رمى ")+d+": اختر "+d+" من وحدات العدو");render()}
+      else{mode="bot";say("الخصم رمى "+d);setTimeout(botStep,900)}}},70)}
+function nextTurn(next){turn=next;
+  if(next==="bot"&&vs==="ai")roll("bot");
+  else{mode="idle";die.disabled=false;render();say(vs==="ai"?"دورك: اضغط على النرد":nm(next)+": ارمِ النرد")}}
+function strike(u,who){var foe=who==="me"?"bot":"me";
+  hurt(u);pts--;
+  if(!alive(foe).length){mode="over";render();finish(who);return}
+  if(pts>0){say("باقي "+pts+" نقاط");render()}
+  else{mode="wait";render();say("انتهى دور "+nm(who));setTimeout(function(){nextTurn(foe)},1000)}}
+function botStep(){
+  var A=alive("me");if(!A.length)return;
+  hurt(A[Math.floor(Math.random()*A.length)]);pts--;render();
+  if(!alive("me").length){mode="over";finish("bot");return}
+  if(pts>0)setTimeout(botStep,650);
+  else{mode="wait";say("انتهى دور الخصم");setTimeout(function(){nextTurn("me")},900)}}
+function finish(w){var t;
+  if(vs==="ai"){t=w==="me"?"🎉 فزت! دمّرت جيش العدو":"💥 خسرت! دُمّر جيشك";(w==="me"?SND.win:SND.lose)()}
+  else{t="🏆 فاز "+nm(w)+"!";SND.win()}
+  document.getElementById("endt").textContent=t;
+  setTimeout(function(){document.getElementById("end").style.display="flex"},700)}
+function showMenu(){mode="menu";document.getElementById("end").style.display="none";document.getElementById("menu").style.display="flex"}
+function pick(v){ac();vs=v;document.getElementById("menu").style.display="none";start()}
+die.onclick=function(){if(mode==="idle")roll(turn)};
+document.getElementById("again").onclick=start;
+document.getElementById("tomenu").onclick=showMenu;
+document.getElementById("home").onclick=showMenu;
+document.getElementById("vsai").onclick=function(){pick("ai")};
+document.getElementById("vsfr").onclick=function(){pick("friend")};
+document.getElementById("snd").onclick=function(){muted=!muted;this.textContent=muted?"🔇":"🔊";ac()};
+wire();teams={bot:mk(),me:mk()};turn="me";mode="menu";showFace(2);render();showMenu();
+</script>
+</body>
+</html>
